@@ -1,0 +1,75 @@
+library(DESeq2)
+library(EnhancedVolcano)
+
+intCounts <- read.table("GSE197868_Intestine_dataset.txt",header=TRUE,sep="\t")
+head(intCounts)
+
+rnaseqMatrix <- intCounts[,c(2:7)]
+rownames(rnaseqMatrix) <- intCounts[,1]
+colnames(rnaseqMatrix) <- c("Control_int1", "Control_int2", "Control_int3",
+                            "RSV_int1", "RSV_int2", "RSV_int3")
+head(rnaseqMatrix)
+
+samples <- data.frame(matrix(c("Control_int1", "Control_int2", "Control_int3",
+                               "RSV_int1", "RSV_int2", "RSV_int3", "Control",
+                               "Control", "Control", "RSV", "RSV", "RSV"),ncol=2))
+
+names(samples) <- c("ID","Treatment")
+rownames(samples) <- samples[,1]
+samples$Treatment <- factor(c("CTRL","CTRL","CTRL",
+                              "RSV","RSV","RSV"))
+
+deseq2Data <- DESeqDataSetFromMatrix(countData = rnaseqMatrix,
+                                     colData = samples,
+                                     design = ~ Treatment)                      
+
+# Filter lowly expressed genes
+dim(deseq2Data)
+dim(deseq2Data[rowSums(counts(deseq2Data)) > 10, ])
+
+# Perform pre-filtering of the data
+deseq2Data <- deseq2Data[rowSums(counts(deseq2Data)) > 10, ]
+
+# Run pipeline for differential expression steps
+deseq2Data <- DESeq(deseq2Data)
+
+res <- results(deseq2Data)
+
+# rlog transform counts
+rld <- rlog(deseq2Data, blind=FALSE)
+rlogcounts <- data.frame(assay(deseq2Data))
+rownames(rlogcounts) <- rownames(deseq2Data)
+
+# PCA plot
+p <- plotPCA(rld, intgroup=c("Treatment"), returnData=TRUE)
+p
+
+pdf("PCA_plot_all_samples.pdf")
+plotPCA(rld, intgroup=c("Treatment"))
+dev.off()
+
+# Pairwise contrast
+res_Control_RSV <- results(deseq2Data)
+resOrdered_Control_RSV <- res_Control_RSV[order(res_Control_RSV$pvalue),]
+
+# Get number of differentially expressed data at different thresholds
+summary(res_Control_RSV$log2FoldChange)
+sum(res_Control_RSV$padj < 0.05, na.rm=TRUE)
+sum(res_Control_RSV$padj < 0.000000000000005, na.rm=TRUE)
+sum(res_Control_RSV$pvalue < 0.05, na.rm=TRUE)
+
+# MA plot
+pdf("RSV_Int_MA_plot.pdf")
+plotMA(res_Control_RSV)
+dev.off()
+
+# Plot the normalized expression data for the top gene
+plotCounts(deseq2Data, gene=which.min(res_Control_RSV$padj), intgroup="Treatment")
+
+# Volcano plot
+plot(res_Control_RSV$log2FoldChange,-1*log2(res_Control_RSV$padj),pch=19)
+
+# Save the results as a data frame
+results <- data.frame(res_Control_RSV)
+
+write.table(results,"Intestine_Control_RSV_DESeq2.txt",sep="\t",row.names=FALSE)
