@@ -1,5 +1,7 @@
 library(DESeq2)
 library(EnhancedVolcano)
+library(ggplot2)
+library(tidyverse)
 
 intCounts <- read.table("GSE197868_Intestine_dataset.txt",header=TRUE,sep="\t")
 head(intCounts)
@@ -70,6 +72,25 @@ plotCounts(deseq2Data, gene=which.min(res_Control_RSV$padj), intgroup="Treatment
 plot(res_Control_RSV$log2FoldChange,-1*log2(res_Control_RSV$padj),pch=19)
 
 # Save the results as a data frame
-results <- data.frame(res_Control_RSV)
+results <- data.frame(res_Control_RSV) %>%
+  rownames_to_column(var="Gene") #Adds Gene to label rows
 
 write.table(results,"Intestine_Control_RSV_DESeq2.txt",sep="\t",row.names=FALSE)
+
+#Creating a table of the 10 genes with highest padj
+top_10_genes <- results %>%
+  arrange(padj) %>%
+  pull(padj, Gene) %>%
+  head(n=10)
+
+#Creating a dataframe w/ the top ten Padj genes
+top_10_genes <- data.frame(top_10_genes)
+colnames(top_10_genes) <- c("Padj")
+rownames_to_column(top_10_genes, "Gene")
+write.csv(top_10_genes, file = "Top_10_genes_padj.csv")
+
+#Creating a table of the 10 genes w/ lowest padj
+bottom_10_genes <- results %>%
+  arrange(padj) %>%
+  pull(Gene, padj) %>%
+  tail(n=10)
