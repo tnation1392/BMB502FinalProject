@@ -46,7 +46,7 @@ rownames(rlogcounts) <- rownames(deseq2Data)
 p <- plotPCA(rld, intgroup=c("Treatment"), returnData=TRUE)
 p
 
-pdf("PCA_plot_all_samples.pdf")
+pdf("PCA_plot_int_samples.pdf")
 plotPCA(rld, intgroup=c("Treatment"))
 dev.off()
 
@@ -92,5 +92,13 @@ write.csv(top_10_genes, file = "Top_10_genes_padj.csv")
 #Creating a table of the 10 genes w/ lowest padj
 bottom_10_genes <- results %>%
   arrange(padj) %>%
-  pull(Gene, padj) %>%
+  drop_na() %>%       #removes na values from the bottom of the results
+  pull(padj, Gene) %>%
   tail(n=10)
+
+#Creating a dataframe of the bottom ten Padj genes
+bottom_10_genes <- data.frame(bottom_10_genes)
+colnames(bottom_10_genes) <- c("Padj")
+rownames_to_column(bottom_10_genes, "Gene")
+write.csv(bottom_10_genes, file = "Bot_10_genes_int_padj.csv")
+
